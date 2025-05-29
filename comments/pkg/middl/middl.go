@@ -5,6 +5,7 @@ import (
 	"github.com/gofrs/uuid"
 	"log"
 	"net/http"
+	"time"
 )
 
 type LoggingResponseWriter struct {
@@ -28,6 +29,7 @@ func (lrw *LoggingResponseWriter) WriteHeader(code int) {
 
 func Middle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		start := time.Now()
 		reqID := req.URL.Query().Get("request_id")
 		if reqID == "" {
 			rID, _ := uuid.NewV4()
@@ -35,13 +37,28 @@ func Middle(next http.Handler) http.Handler {
 		}
 		req.Header.Set("X-Request-ID", reqID)
 		w.Header().Set("X-Request-ID", reqID)
-		w.Header().Set("Content-Type", "application/json")
+
+		if w.Header().Get("Content-Type") == "" {
+			w.Header().Set("Content-Type", "application/json")
+		}
+
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
+
 		lrw := NewLoggingResponseWriter(w)
 		next.ServeHTTP(lrw, req)
-		statusCode := lrw.statusCode
-		log.Printf("<-- client ip: %s, method: %s, url: %s, status code: %d %s, trace id: %s",
-			req.RemoteAddr, req.Method, req.URL.Path, statusCode, http.StatusText(statusCode), reqID)
+
+		log.Printf(
+			"<-- time: %s, client ip: %s, method: %s, url: %s, status code: %d %s, trace id: %s",
+			start.Format(time.RFC3339),
+			req.RemoteAddr,
+			req.Method,
+			req.URL.Path,
+			lrw.statusCode,
+			http.StatusText(lrw.statusCode),
+			reqID,
+		)
 	})
 }
 

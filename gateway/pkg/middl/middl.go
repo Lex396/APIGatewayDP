@@ -36,6 +36,8 @@ func Middle(next http.Handler) http.Handler {
 		w.Header().Set("X-Request-ID", reqID)
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
 
 		lrw := NewLoggingResponseWriter(w)
 		next.ServeHTTP(lrw, req)

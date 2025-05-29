@@ -26,30 +26,34 @@ func (api *API) Router() *mux.Router {
 }
 
 func (api *API) endpoints() {
-	api.router.HandleFunc("/check", api.checkHandler).Methods(http.MethodPost, http.MethodOptions)
+	api.router.HandleFunc("/censor", api.handleCensor).Methods(http.MethodPost, http.MethodOptions)
 }
 
-func (api *API) checkHandler(w http.ResponseWriter, r *http.Request) {
+func (api *API) handleCensor(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		Content string `json:"content"`
+		Text string `json:"text"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
 
-	// Проверка на запрещенные слова
+	log.Printf("Filtering text: %s", request.Text)
+
 	stopWords := []string{"qwerty", "йцукен", "zxvbnm"}
-	contentLower := strings.ToLower(request.Content)
+	filtered := request.Text
 
 	for _, word := range stopWords {
-		if strings.Contains(contentLower, strings.ToLower(word)) {
-			log.Printf("Найдено запрещенное слово: %s", word)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+		filtered = strings.ReplaceAll(filtered, word, "***")
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8") // <- добавь charset=utf-8
+	resp := map[string]string{
+		"text": filtered,
+	}
+
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
 }

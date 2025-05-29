@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -135,9 +136,11 @@ func (a *API) handleGetNewsByID(w http.ResponseWriter, r *http.Request) {
 func (a *API) handlePostComment(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	newsID := vars["id"]
+	log.Println("POST comment to news ID:", newsID)
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		log.Println("Error reading body:", err)
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
@@ -145,21 +148,27 @@ func (a *API) handlePostComment(w http.ResponseWriter, r *http.Request) {
 
 	var comment map[string]string
 	if err := json.Unmarshal(body, &comment); err != nil {
+		log.Println("Error unmarshalling JSON:", err)
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
 
 	text := comment["text"]
+	log.Println("Original comment text:", text)
+
 	filteredText, err := a.filterText(text)
 	if err != nil {
+		log.Println("Error filtering text:", err)
 		http.Error(w, "censorship failed", http.StatusBadGateway)
 		return
 	}
 	comment["text"] = filteredText
+	log.Println("Filtered comment text:", filteredText)
 
 	jsonBody, _ := json.Marshal(comment)
 	req, err := http.NewRequest("POST", a.commentsURL+"/comments?news_id="+newsID, bytes.NewBuffer(jsonBody))
 	if err != nil {
+		log.Println("Error creating comment request:", err)
 		http.Error(w, "failed to create request", http.StatusInternalServerError)
 		return
 	}
@@ -168,36 +177,44 @@ func (a *API) handlePostComment(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := a.client.Do(req)
 	if err != nil {
+		log.Println("Error sending comment:", err)
 		http.Error(w, "failed to send comment", http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
+	log.Println("Comment service response status:", resp.StatusCode)
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
 
 func (a *API) filterText(text string) (string, error) {
+	log.Println("Filtering text:", text)
+
 	requestBody := map[string]string{"text": text}
 	jsonBody, _ := json.Marshal(requestBody)
 
 	req, err := http.NewRequest("POST", a.censorURL+"/censor", bytes.NewBuffer(jsonBody))
 	if err != nil {
+		log.Println("Error creating censor request:", err)
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := a.client.Do(req)
 	if err != nil {
+		log.Println("Error sending censor request:", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	var respData map[string]string
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		log.Println("Error decoding censor response:", err)
 		return "", err
 	}
 
+	log.Println("Filtered text from censor:", respData["text"])
 	return respData["text"], nil
 }
 

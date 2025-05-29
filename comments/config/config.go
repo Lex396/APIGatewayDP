@@ -7,7 +7,6 @@ type Config struct {
 	URLdb   string
 }
 
-// New возвращает новую Config структуру
 func New() *Config {
 	return &Config{
 		AdrPort: getEnv("COMMENTS_PORT", ""),
@@ -15,7 +14,7 @@ func New() *Config {
 	}
 }
 
-// Простая вспомогательная функция для считывания окружения или возврата значения по умолчанию
+// getEnv вспомогательная функция для считывания окружения или возврата значения по умолчанию
 func getEnv(key string, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
