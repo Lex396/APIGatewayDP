@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Ошибка инициализации логгера: %v", err)
 	}
-	logInstance.Info("Приложение запущено")
+	logInstance.InfoWithRequestID("Приложение запущено")
 
 	// Загрузка конфигурации
 	cfg := config.New()
@@ -33,7 +33,7 @@ func main() {
 	// Подключение к базе данных
 	db, err := storage.ConnectByURL(cfg.URLdb)
 	if err != nil {
-		logInstance.Error("Ошибка подключения к БД: ", err)
+		logInstance.ErrorWithRequestID("Ошибка подключения к БД: ", err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -43,7 +43,7 @@ func main() {
 	// Загрузка конфигурации RSS
 	rssConfig, err := storage.LoadConfig("aggregator/cmd/server/config.json", logInstance)
 	if err != nil {
-		logInstance.Error("Ошибка загрузки конфигурации RSS: ", err)
+		logInstance.ErrorWithRequestID("Ошибка загрузки конфигурации RSS: ", err)
 		os.Exit(1)
 	}
 
@@ -66,7 +66,7 @@ func main() {
 	go func() {
 		for post := range postCh {
 			if err := store.SavePost(post, logInstance); err != nil {
-				logInstance.Error("Ошибка сохранения поста:", err)
+				logInstance.ErrorWithRequestID("Ошибка сохранения поста:", err)
 			}
 		}
 	}()
@@ -74,15 +74,15 @@ func main() {
 	// Обработка ошибок RSS
 	go func() {
 		for err := range errCh {
-			logInstance.Error("Ошибка получения RSS: ", err)
+			logInstance.ErrorWithRequestID("Ошибка получения RSS: ", err)
 		}
 	}()
 
-	logInstance.Info("Сервер запущен на порту " + cfg.AdrPort)
+	logInstance.InfoWithRequestID("Сервер запущен на порту " + cfg.AdrPort)
 
 	// Запуск HTTP-сервера
 	if err := http.ListenAndServe(cfg.AdrPort, router); err != nil {
-		logInstance.Error("Ошибка при запуске сервера: ", err)
+		logInstance.ErrorWithRequestID("Ошибка при запуске сервера: ", err)
 		os.Exit(1)
 	}
 }

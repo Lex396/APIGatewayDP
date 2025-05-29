@@ -6,10 +6,11 @@ type Comment struct {
 	NewsID   int    `json:"news_id"`
 	ParentID *int   `json:"parent_id,omitempty"`
 	Content  string `json:"content"`
-	PubTime  int64  `json:"pub_time,omitempty"`
+	PubTime  int64  `json:"pubtime,omitempty"`
 }
 
 type Interface interface {
 	AllComments(newsID int) ([]Comment, error)
 	AddComment(Comment) error
+	DeleteComment(id int) error
 }

@@ -115,7 +115,7 @@ func (s *Storage) SavePost(post Post, logInstance *logger.Logger) error {
 		post.Title, post.Content, post.PubTime, post.Link,
 	)
 	if err != nil {
-		logInstance.Error("Ошибка сохранения новости:", err)
+		logInstance.ErrorWithRequestID("Ошибка сохранения новости:", err)
 		return err
 	}
 	return nil
@@ -191,7 +191,7 @@ func (s *Storage) GetPostsByTitle(search string, limit, offset int) ([]Post, Pag
 // GetPostByID получение поста по id
 func (s *Storage) GetPostByID(id int) (Post, error) {
 	var post Post
-	query := `SELECT id, title, link, content, pub_time FROM news WHERE id = $1`
+	query := `SELECT id, title, link, content, pubtime FROM news WHERE id = $1`
 
 	row := s.DB.QueryRow(query, id)
 	err := row.Scan(&post.ID, &post.Title, &post.Link, &post.Content, &post.PubTime)
@@ -206,7 +206,7 @@ func (s *Storage) GetPostByID(id int) (Post, error) {
 
 // LoadConfig загружает конфигурацию из JSON-файла
 func LoadConfig(filename string, logInstance *logger.Logger) (*Config, error) {
-	logInstance.Info("Загрузка конфигурации из файла:", filename)
+	logInstance.InfoWithRequestID("Загрузка конфигурации из файла:", filename)
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -218,6 +218,6 @@ func LoadConfig(filename string, logInstance *logger.Logger) (*Config, error) {
 		return nil, fmt.Errorf("ошибка парсинга конфигурации: %w", err)
 	}
 
-	logInstance.Info("Загружена конфигурация:", config)
+	logInstance.InfoWithRequestID("Загружена конфигурация:", config)
 	return &config, nil
 }

@@ -13,21 +13,11 @@ type Store struct {
 
 // New Конструктор объекта хранилища
 func New(ctx context.Context, constr string) (*Store, error) {
-	for {
-		_, err := pgxpool.New(ctx, constr)
-		if err == nil {
-			break
-		}
-	}
 	db, err := pgxpool.New(ctx, constr)
 	if err != nil {
 		return nil, err
 	}
-	s := Store{
-		db: db,
-	}
-
-	return &s, nil
+	return &Store{db: db}, nil
 }
 
 // AllList Выводит все комментарии.

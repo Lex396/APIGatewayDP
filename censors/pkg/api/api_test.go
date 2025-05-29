@@ -1,60 +1,54 @@
 package api
 
 import (
-	"APIGateway/censors/pkg/storage"
 	"bytes"
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
-func TestCommentHandler(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	psgr, err := storage.New(ctx, "postgres://postgres:password@192.168.58.133:5432/stop")
-	if err != nil {
-		t.Error(err)
-	}
-	api := New(psgr)
-	var testBody = []byte(`{"newsID": 1,"content": "улий"}`)
-	var testBody2 = []byte(`{"newsID": 1,"content": "Тест анус "}`)
-	var testBody3 = []byte(`{"newsID": 1,"content": "Тест блядво "}`)
-	var testBody4 = []byte(`{"newsID": 1,"content": "Тест въебать "}`)
-	var testBody5 = []byte(`{"newsID": 1,"content": "Тест ups "}`)
-	req := httptest.NewRequest(http.MethodPost, "/comments/check", bytes.NewBuffer(testBody))
-	rr := httptest.NewRecorder()
-	api.Router().ServeHTTP(rr, req)
+func TestCheckHandler(t *testing.T) {
+	api := New()
 
-	if !(rr.Code == http.StatusOK) {
-		t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusOK)
-	}
-
-	req = httptest.NewRequest(http.MethodPost, "/comments/check", bytes.NewBuffer(testBody2))
-	rr = httptest.NewRecorder()
-	api.Router().ServeHTTP(rr, req)
-	if !(rr.Code == http.StatusBadRequest) {
-		t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusBadRequest)
-	}
-	req = httptest.NewRequest(http.MethodPost, "/comments/check", bytes.NewBuffer(testBody3))
-	rr = httptest.NewRecorder()
-	api.Router().ServeHTTP(rr, req)
-	if !(rr.Code == http.StatusBadRequest) {
-		t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusBadRequest)
-	}
-	req = httptest.NewRequest(http.MethodPost, "/comments/check", bytes.NewBuffer(testBody4))
-	rr = httptest.NewRecorder()
-	api.Router().ServeHTTP(rr, req)
-	if !(rr.Code == http.StatusBadRequest) {
-		t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusBadRequest)
+	tests := []struct {
+		name       string
+		body       []byte
+		wantStatus int
+	}{
+		{
+			name:       "clean comment",
+			body:       []byte(`{"content": "Это нормальный комментарий"}`),
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "contains forbidden word qwerty",
+			body:       []byte(`{"content": "это qwerty сообщение"}`),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "contains forbidden word йцукен",
+			body:       []byte(`{"content": "это йцукен слово"}`),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "contains forbidden word zxvbnm",
+			body:       []byte(`{"content": "плохое zxvbnm слово"}`),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid json",
+			body:       []byte(`{"invalid":`),
+			wantStatus: http.StatusBadRequest,
+		},
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/comments/stop", bytes.NewBuffer(testBody5))
-	rr = httptest.NewRecorder()
-	api.Router().ServeHTTP(rr, req)
+	for _, tt := range tests {
+		req := httptest.NewRequest(http.MethodPost, "/check", bytes.NewBuffer(tt.body))
+		rr := httptest.NewRecorder()
+		api.Router().ServeHTTP(rr, req)
 
-	if !(rr.Code == http.StatusCreated) {
-		t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusBadRequest)
+		if rr.Code != tt.wantStatus {
+			t.Errorf("[%s] expected status %d, got %d", tt.name, tt.wantStatus, rr.Code)
+		}
 	}
 }

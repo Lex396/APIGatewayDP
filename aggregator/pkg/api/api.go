@@ -174,7 +174,7 @@ func (api *API) newsDetailedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		api.Logger.Error("Ошибка отправки ответа:", err)
+		api.Logger.ErrorWithRequestID("Ошибка отправки ответа:", err)
 		http.Error(w, "Ошибка рендеринга JSON", http.StatusInternalServerError)
 	}
 }

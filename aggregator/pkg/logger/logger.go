@@ -26,14 +26,6 @@ func NewLogger(logFile string) (*Logger, error) {
 	}, nil
 }
 
-func (l *Logger) Info(v ...interface{}) {
-	l.infoLog.Println(v...)
-}
-
-func (l *Logger) Error(v ...interface{}) {
-	l.errorLog.Println(v...)
-}
-
 func (l *Logger) InfoWithRequestID(requestID string, v ...interface{}) {
 	l.infoLog.Println(append([]interface{}{"requestID:", requestID}, v...)...)
 }

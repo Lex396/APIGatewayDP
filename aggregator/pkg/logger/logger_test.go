@@ -11,8 +11,8 @@ func TestLogger(t *testing.T) {
 		t.Fatalf("Ошибка создания логгера: %v", err)
 	}
 
-	logInstance.Info("Тест INFO")
-	logInstance.Error("Тест ERROR")
+	logInstance.InfoWithRequestID("test-id", "Тест INFO")
+	logInstance.ErrorWithRequestID("test-id", "Тест ERROR")
 
 	if _, err := os.Stat("test.log"); os.IsNotExist(err) {
 		t.Errorf("Файл логов не создан")

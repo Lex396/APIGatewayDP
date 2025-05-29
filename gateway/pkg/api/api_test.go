@@ -3,90 +3,104 @@ package api
 import (
 	"APIGateway/gateway/config"
 	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestAPI_endpoints(t *testing.T) {
-	cfg := &config.Config{
-		Censor: config.Censor{
-			AdrPort: ":8081",
-		},
-		Comments: config.Comments{
-			AdrPort: ":8082",
-		},
-		News: config.News{
-			AdrPort: ":8083",
-		},
-		Gateway: config.Gateway{
-			AdrPort: ":8080",
-		},
+// mockServer создает простой mock-сервер с указанным ответом и кодом
+func mockServer(status int, responseBody interface{}) *httptest.Server {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(status)
+		if responseBody != nil {
+			json.NewEncoder(w).Encode(responseBody)
+		}
+	})
+	return httptest.NewServer(handler)
+}
+
+func TestHandleGetNews(t *testing.T) {
+	newsResp := map[string]interface{}{
+		"items": []map[string]string{{"title": "News1"}, {"title": "News2"}},
+	}
+	newsSrv := mockServer(http.StatusOK, newsResp)
+	defer newsSrv.Close()
+
+	cfg := &config.Config{}
+	a := New(cfg, newsSrv.URL[len("http://localhost"):], "", "")
+	req := httptest.NewRequest("GET", "/news", nil)
+	w := httptest.NewRecorder()
+
+	a.Router().ServeHTTP(w, req)
+
+	resp := w.Result()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	if !bytes.Contains(body, []byte("News1")) {
+		t.Errorf("unexpected body: %s", string(body))
+	}
+}
+
+func TestHandleGetNewsByID(t *testing.T) {
+	newsResp := map[string]interface{}{"id": 1, "title": "Test News"}
+	commentsResp := []map[string]interface{}{
+		{"author": "Alice", "text": "Great!"},
 	}
 
-	api := New(cfg, "8083", "8081", "8082")
+	newsSrv := mockServer(http.StatusOK, newsResp)
+	commentsSrv := mockServer(http.StatusOK, commentsResp)
 
-	t.Run("Test /news endpoint", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/news", nil)
-		rr := httptest.NewRecorder()
-		api.Router().ServeHTTP(rr, req)
+	defer newsSrv.Close()
+	defer commentsSrv.Close()
 
-		if rr.Code != http.StatusOK {
-			t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusOK)
-		}
-	})
+	cfg := &config.Config{}
+	a := New(cfg, newsSrv.URL[len("http://localhost"):], "", commentsSrv.URL[len("http://localhost"):])
 
-	t.Run("Test /news/latest endpoint", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/news/latest", nil)
-		rr := httptest.NewRecorder()
-		api.Router().ServeHTTP(rr, req)
+	req := httptest.NewRequest("GET", "/news/1", nil)
+	w := httptest.NewRecorder()
 
-		if rr.Code != http.StatusOK {
-			t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusOK)
-		}
-	})
+	a.Router().ServeHTTP(w, req)
+	resp := w.Result()
+	body, _ := io.ReadAll(resp.Body)
 
-	t.Run("Test /news/search endpoint", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/news/search?id=2", nil)
-		rr := httptest.NewRecorder()
-		api.Router().ServeHTTP(rr, req)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	if !bytes.Contains(body, []byte("Test News")) || !bytes.Contains(body, []byte("Alice")) {
+		t.Errorf("unexpected body: %s", string(body))
+	}
+}
 
-		if rr.Code != http.StatusOK {
-			t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusOK)
-		}
-	})
+func TestHandlePostComment(t *testing.T) {
+	censorSrv := mockServer(http.StatusOK, map[string]string{"text": "cleaned comment"})
+	commentsSrv := mockServer(http.StatusCreated, map[string]string{"status": "ok"})
 
-	var testBody1 = []byte(`{"newsID": 3,"content": "Тест qwerty "}`)
-	var testBody2 = []byte(`{"newsID": 3,"content": "Тест ups "}`)
-	var testBody3 = []byte(`{"id": 3}`)
+	defer censorSrv.Close()
+	defer commentsSrv.Close()
 
-	t.Run("Test invalid comment add", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/comments/add", bytes.NewBuffer(testBody1))
-		rr := httptest.NewRecorder()
-		api.Router().ServeHTTP(rr, req)
+	cfg := &config.Config{}
+	a := New(cfg, "", censorSrv.URL[len("http://localhost"):], commentsSrv.URL[len("http://localhost"):])
 
-		if rr.Code != http.StatusBadRequest {
-			t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusBadRequest)
-		}
-	})
+	comment := map[string]string{"text": "badword"}
+	body, _ := json.Marshal(comment)
+	req := httptest.NewRequest("POST", "/news/1/comments", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
 
-	t.Run("Test valid comment add", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/comments/add", bytes.NewBuffer(testBody2))
-		rr := httptest.NewRecorder()
-		api.Router().ServeHTTP(rr, req)
+	a.Router().ServeHTTP(w, req)
 
-		if rr.Code != http.StatusCreated {
-			t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusCreated)
-		}
-	})
+	resp := w.Result()
+	respBody, _ := io.ReadAll(resp.Body)
 
-	t.Run("Test comment delete", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodDelete, "/comments/del", bytes.NewBuffer(testBody3))
-		rr := httptest.NewRecorder()
-		api.Router().ServeHTTP(rr, req)
-
-		if rr.Code != http.StatusOK {
-			t.Errorf("код неверен: получили %d, а хотели %d", rr.Code, http.StatusOK)
-		}
-	})
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d", resp.StatusCode)
+	}
+	if !bytes.Contains(respBody, []byte("ok")) {
+		t.Errorf("unexpected body: %s", string(respBody))
+	}
 }

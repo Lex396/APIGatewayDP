@@ -2,48 +2,54 @@ package storage
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 )
 
-func TestNew(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+var connStr = "postgres://filteruser:fpassword@localhost:5432/comments?sslmode=disable"
+
+func TestMain(m *testing.M) {
+	// Проверка соединения один раз
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err := New(ctx, "postgres://postgres:rootroot@localhost:5432/comm")
+	_, err := New(ctx, connStr)
 	if err != nil {
-		t.Fatal(err)
+		panic("Не удалось подключиться к БД: " + err.Error())
 	}
+	os.Exit(m.Run())
 }
 
 func TestStore_AddList(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	dataBase, err := New(ctx, "postgres://postgres:rootroot@localhost:5432/comm")
-	str := Stop{
-		StopList: "ups",
-	}
-	_ = dataBase.AddList(str)
+	store, err := New(ctx, connStr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log("Создана запись.")
+
+	err = store.AddList(Stop{StopList: "ups"})
+	if err != nil {
+		t.Errorf("Ошибка при добавлении: %v", err)
+	}
 }
 
 func TestStore_AllList(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	dataBase, err := New(ctx, "postgres://postgres:rootroot@localhost:5432/comm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := dataBase.AllList()
+	store, err := New(ctx, connStr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(result) == 0 {
-		t.Errorf("Таблица \"стоп\" пуста.")
+	list, err := store.AllList()
+	if err != nil {
+		t.Fatalf("Ошибка при чтении списка: %v", err)
+	}
+
+	if len(list) == 0 {
+		t.Error("Список стоп-слов пуст")
 	} else {
-		t.Logf("Таблица \"стоп\" содержит %d записи.", len(result))
+		t.Logf("Найдено %d записей", len(list))
 	}
 }

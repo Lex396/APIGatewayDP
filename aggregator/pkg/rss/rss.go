@@ -31,24 +31,24 @@ var timeFormats = []string{
 
 // parseRSS загружает и парсит RSS-ленту
 func parseRSS(url string, logInstance *logger.Logger) ([]storage.Post, error) {
-	logInstance.Info("Запрос к RSS-ленте:", url)
+	logInstance.InfoWithRequestID("Запрос к RSS-ленте:", url)
 
 	resp, err := http.Get(url)
 	if err != nil {
-		logInstance.Error("Ошибка HTTP-запроса:", err)
+		logInstance.ErrorWithRequestID("Ошибка HTTP-запроса:", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logInstance.Error("Ошибка чтения тела ответа:", err)
+		logInstance.ErrorWithRequestID("Ошибка чтения тела ответа:", err)
 		return nil, err
 	}
 
 	var rss RSS
 	if err := xml.Unmarshal(data, &rss); err != nil {
-		logInstance.Error("Ошибка парсинга XML:", err)
+		logInstance.ErrorWithRequestID("Ошибка парсинга XML:", err)
 		return nil, err
 	}
 
@@ -75,7 +75,7 @@ func parsePubDate(dateStr string, logInstance *logger.Logger) time.Time {
 			return t
 		}
 	}
-	logInstance.Error("Ошибка парсинга даты:", dateStr)
+	logInstance.ErrorWithRequestID("Ошибка парсинга даты:", dateStr)
 	return time.Now()
 }
 
@@ -96,7 +96,7 @@ func StartPolling(urls []string, period int, postChan chan<- storage.Post, errCh
 
 // pollingRSS выполняет запрос к RSS-ленте и отправляет результаты в каналы
 func pollingRSS(feed string, postChan chan<- storage.Post, errChan chan<- error, logInstance *logger.Logger) {
-	logInstance.Info("Читаем RSS:", feed)
+	logInstance.InfoWithRequestID("Читаем RSS:", feed)
 	posts, err := parseRSS(feed, logInstance)
 	if err != nil {
 		errChan <- err
@@ -104,7 +104,7 @@ func pollingRSS(feed string, postChan chan<- storage.Post, errChan chan<- error,
 	}
 
 	if len(posts) == 0 {
-		logInstance.Info("Нет новых статей из:", feed)
+		logInstance.InfoWithRequestID("Нет новых статей из:", feed)
 	}
 
 	for _, post := range posts {

@@ -29,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Ошибка инициализации логгера: %v", err) // Логируем через стандартный, т.к. логгер ещё не инициализирован
 	}
-	logg.Info("Comments сервис запущен")
+	logg.InfoWithRequestID("Comments сервис запущен")
 
 	cfg := config.New()
 	port := flag.String("comments-port", cfg.AdrPort, "Порт для comments сервиса")
@@ -40,7 +40,7 @@ func main() {
 
 	db, err := storage.New(ctx, cfg.URLdb)
 	if err != nil {
-		logg.Error("Ошибка подключения к БД:", err)
+		logg.ErrorWithRequestID("Ошибка подключения к БД:", err)
 		os.Exit(1)
 	}
 
@@ -57,20 +57,20 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		logg.Info("Сервер комментариев запущен на " + *port)
+		logg.InfoWithRequestID("Сервер комментариев запущен на " + *port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logg.Error("Ошибка сервера:", err)
+			logg.ErrorWithRequestID("Ошибка сервера:", err)
 		}
 	}()
 
 	<-done
-	logg.Info("Сервер комментариев останавливается...")
+	logg.InfoWithRequestID("Сервер комментариев останавливается...")
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		logg.Error("Ошибка при остановке сервера:", err)
+		logg.ErrorWithRequestID("Ошибка при остановке сервера:", err)
 	}
-	logg.Info("Сервер комментариев остановлен")
+	logg.InfoWithRequestID("Сервер комментариев остановлен")
 }
