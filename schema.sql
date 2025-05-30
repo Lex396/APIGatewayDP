@@ -10,7 +10,8 @@ CREATE TABLE posts (
 );
 CREATE TABLE comments (
     id SERIAL PRIMARY KEY,
-    news_id INT,
+    news_id INT REFERENCES posts(id) ON DELETE CASCADE,
+    parent_id INT REFERENCES comments(id) ON DELETE CASCADE,
     content TEXT NOT NULL DEFAULT 'empty',
     PubTime BIGINT NOT NULL DEFAULT extract (epoch from now())
 );
